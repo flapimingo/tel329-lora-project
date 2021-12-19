@@ -1,10 +1,11 @@
 #include <SPI.h> //for the SD card module
 #include <SD.h> // for the SD card
 #include <DHT.h> // for the DHT sensor
+#include <LoRa.h> // LoRa library
 #include <RTClib.h> // for the RTC
 
 //define DHT pin
-#define DHTPIN 3     
+#define DHTPIN 2     
 #define DHTTYPE DHT22
 
 // initialize DHT sensor for normal 16mhz Arduino
@@ -25,7 +26,7 @@ void setup() {
   dht.begin() ;  
 
   while(!Serial); // for Leonardo/Micro/Zero
-  if(! rtc.begin()) {
+  if(!rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1);
   }
@@ -54,6 +55,13 @@ void setup() {
   } 
   else {
     Serial.println("error opening data.txt");
+  }
+
+  Serial.println("LoRa Sender");
+
+  if (!LoRa.begin(915E6)) {
+    Serial.println("Starting LoRa failed!");
+    while (1);
   }
 }
 
@@ -85,7 +93,7 @@ void loggingTime() {
   Serial.print(':');
   Serial.println(now.second(), DEC);
   myFile.close();
-  delay(1000);  
+  delay(500);  
 }
 
 void loggingTemperature() {
@@ -93,6 +101,7 @@ void loggingTemperature() {
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   // Read temperature as Celsius
   float t = dht.readTemperature();
+  
   // Read temperature as Fahrenheit
   //float f = dht.readTemperature(true);
   
@@ -121,5 +130,11 @@ void loggingTemperature() {
 void loop() {
   loggingTime();
   loggingTemperature();
+  
+  Serial.print("Sending packet: ");
+  // send packet
+  LoRa.beginPacket();
+  LoRa.print("hello");
+  LoRa.endPacket();
   delay(5000);
 }
