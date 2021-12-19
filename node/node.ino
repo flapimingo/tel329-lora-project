@@ -5,17 +5,18 @@
 #include <RTClib.h> // for the RTC
 
 //define DHT pin
-#define DHTPIN 2     
+#define DHTPIN 3     
 #define DHTTYPE DHT22
 
 // initialize DHT sensor for normal 16mhz Arduino
 DHT dht (DHTPIN, DHTTYPE);
 
-const int chipSelect = 10; 
+const int chipSelect = 5; 
 
 // Create a file to store the data
 File myFile;
-String Temperature, Humidity, Data;
+String Data;
+double Temperature, Humidity;
 
 // RTC
 RTC_DS1307 rtc;
@@ -26,7 +27,7 @@ void setup() {
   dht.begin() ;  
 
   while(!Serial); // for Leonardo/Micro/Zero
-  if(!rtc.begin()) {
+  if(! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1);
   }
@@ -56,7 +57,7 @@ void setup() {
   else {
     Serial.println("error opening data.txt");
   }
-
+  
   Serial.println("LoRa Sender");
 
   if (!LoRa.begin(915E6)) {
@@ -65,7 +66,29 @@ void setup() {
   }
 }
 
-void loggingTime() {
+void getTemp() {
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  // Read temperature as Celsius
+  Temperature = dht.readTemperature();
+  // Read temperature as Fahrenheit
+  //float f = dht.readTemperature(true);
+  
+  // Check if any reads failed and exit early (to try again).
+  if  (isnan(Temperature) /*|| isnan(f)*/) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  
+  //debugging purposes
+  Serial.print("Temperature: "); 
+  Serial.print(Temperature);
+  Serial.println(" *C");
+  //Serial.print(f);
+  //Serial.println(" *F\t"); 
+}
+
+void loggingData() {
   DateTime now = rtc.now();
   myFile = SD.open("DATA.txt", FILE_WRITE);
   if (myFile) {
@@ -81,6 +104,8 @@ void loggingTime() {
     myFile.print(':');
     myFile.print(now.second(), DEC);
     myFile.print(",");
+    myFile.print(Temperature);
+    myFile.println(",");
   }
   Serial.print(now.year(), DEC);
   Serial.print('/');
@@ -93,45 +118,14 @@ void loggingTime() {
   Serial.print(':');
   Serial.println(now.second(), DEC);
   myFile.close();
-  delay(500);  
-}
-
-void loggingTemperature() {
-  // Reading temperature or humidity takes about 250 milliseconds!
-  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  // Read temperature as Celsius
-  float t = dht.readTemperature();
-  
-  // Read temperature as Fahrenheit
-  //float f = dht.readTemperature(true);
-  
-  // Check if any reads failed and exit early (to try again).
-  if  (isnan(t) /*|| isnan(f)*/) {
-    Serial.println("Failed to read from DHT sensor!");
-    return;
-  }
-  
-  //debugging purposes
-  Serial.print("Temperature: "); 
-  Serial.print(t);
-  Serial.println(" *C");
-  //Serial.print(f);
-  //Serial.println(" *F\t"); 
-  
-  myFile = SD.open("DATA.txt", FILE_WRITE);
-  if (myFile) {
-    Serial.println("open with success");
-    myFile.print(t);
-    myFile.println(",");
-  }
-  myFile.close();
+  delay(1000);
 }
 
 void loop() {
-  loggingTime();
-  loggingTemperature();
-  
-  Serial.print("Sending packet: ");
+  getTemp();
+  loggingData();
+
+    Serial.print("Sending packet: ");
   // send packet
   LoRa.beginPacket();
   LoRa.print("hello");
